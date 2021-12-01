@@ -37,3 +37,9 @@ vignettes/*.pdf
 
 # R Environment Variables
 .Renviron
+
+#snakemake
+.snakemake/
+
+#mac’s Finder creates when you browse a directory via Finder
+.DS_Store
