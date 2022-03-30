@@ -29,6 +29,8 @@ ggplotRegression <- function (fit, dat, invVar, lowH, highH, lowV, highV, xlabte
           plot.margin=grid::unit(c(5,5,5,5), "mm")) +
     #geom_point(aes(size=((1/invVar)/15)) ) +
     geom_abline(intercept = intercept1, slope = slope1,  color = "red", show.legend = T, size=1.2) +
+    geom_vline(xintercept=0,color="grey",alpha=0.5) +
+    geom_hline(yintercept=0,color="grey",alpha=0.5) +
     geom_point() +
     #scale_colour_grey(start=0,end=0.6) +
     geom_abline(intercept = 0, slope=1, col="grey3", show.legend = T, linetype = "dashed") +
@@ -71,16 +73,18 @@ data2<-data2[data2$proxy!="yes" & data2$Effect!="."]
 data3<-data2[,c("IDtemp","ref","alt","beta","se","p","Allele1","Allele2","Effect","StdErr","P-value")]
 #Allele1 is effect allele from INVENT
 #alt is effect allele from GBMI
-data3$new_effect<-ifelse(toupper(data3$Allele2)==data3$alt,as.numeric(data3$Effect),(-1*as.numeric(data3$Effect)))
+data3$new_effect<-ifelse(toupper(data3$Allele1)==data3$alt,as.numeric(data3$Effect),(-1*as.numeric(data3$Effect)))
 data3$Effect<-as.numeric(data3$Effect)
 data3$StdErr<-as.numeric(data3$StdErr)
+
 data3$GBMI_LB<-data3$beta-(1.96*data3$se)
 data3$GBMI_UB<-data3$beta+(1.96*data3$se)
 data3$GBMI_invse<-1/data3$se
 
-data3$INV_LB<-data3$Effect-(1.96*data3$StdErr)
-data3$INV_LB<-data3$Effect+(1.96*data3$StdErr)
+data3$INV_LB<-data3$new_effect-(1.96*data3$StdErr)
+data3$INV_UB<-data3$new_effect+(1.96*data3$StdErr)
 data3$INV_invse<-1/data3$StdErr
+dat=data3[,c("beta","se","new_effect","StdErr")]
   #betacol=paste0(b,"_beta")
   #secol=paste0(b,"_sebeta")
   #bse=secol
@@ -107,11 +111,11 @@ data3$INV_invse<-1/data3$StdErr
   #data3[[lboinvse]] = 1/data3[[lbose]]
 
   #formula3 = as.formula(paste0("Effect_GWAS ~ ", b, "_beta"))
-  formula3 = as.formula(paste0(b,"new_effect ~ beta"))
+  formula3 = as.formula("new_effect ~ beta")
   #fit3 <- lm(formula3, weights=data3[[binvse]], data = data3)
   fit3 <- lm(formula3, data = data3)
-  minVal=min(0,min(data3[[blowV]])-0.01,min(data3[[lbolowH]])-0.01)
-  maxVal=max(max(data3[[bhighV]])+0.01,max(data3[[lbohighH]])+0.01 )
+  minVal=min(min(data3$GBMI_LB)-0.01,min(data3$INV_LB)-0.01)
+  maxVal=max(max(data3$GBMI_UB)+0.01,max(data3$INV_UB)+0.01 )
   cat("maxVal: ", maxVal, "\n")
   cat("minVal: ", minVal, "\n")
   #ggplotRegression(fit3, data3[[bse]],data3[[blowH]], data3[[bhighH]], data3[[lbolowV]],data3[[lbohighV]],
@@ -122,9 +126,29 @@ data3$INV_invse<-1/data3$StdErr
   #                 xMinVal= minVal, yMinVal= minVal)
   #dat=data3[,c("beta","standard_error",betacol,secol)]
 
- ggplotRegression(fit3, data3, data3[[binvse]], data3[[lbolowH]],data3[[lbohighH]], data3[[blowV]], data3[[bhighV]],
-                 xlabtext=paste0("Effect sizes reported in TAGC multiancestry"),
-                  ylabtext=paste0("Effect sizes in all-biobank meta-analyses"),
-                 pdffile=paste0("effect_size_",b,"_vs_TAGC_multiancestry_harmonized.png"),
+ ggplotRegression(fit3, dat, data3$GBMI_invse, data3$GBMI_LB,data3$GBMI_UB, data3$INV_LB, data3$INV_UB,
+                 ylabtext=paste0("Effect sizes from INVENT+MVP\n meta-analysis (replication)"),
+                  xlabtext=paste0("Effect sizes from GBMI all-biobank\n meta-analyses (discovery)"),
+                 pdffile=paste0("effect_size_all_biobank.png"),
                   xMaxVal = maxVal, yMaxVal = maxVal,
                   xMinVal= minVal, yMinVal= minVal)
+ 
+ ####### meta-analysis 
+ 
+ z_to_b<-data.frame("beta"=0,"se"=0,"sample"="test",stringsAsFactors = F)
+ ss$weight<-1/ss$SE^2
+ ss$bw<-ss$BETA*ss$weight
+ for (k in unique(ss$subset)){
+   sub<-ss[ss$subset==k,]
+   bwsum<-sum(sub$bw)
+   wsum<-sum(sub$weight)
+   se<-sqrt(1/sum(sub$weight))
+   beta<-bwsum/wsum
+   z_to_b<-rbind(z_to_b,c(beta,se,k))
+ }
+ z_to_b<-z_to_b[-1,]
+ z_to_b$ub<-as.numeric(z_to_b$beta)+1.96*as.numeric(z_to_b$se)
+ z_to_b$lb<-as.numeric(z_to_b$beta)-1.96*as.numeric(z_to_b$se)
+ z_to_b$OR<-exp(as.numeric(z_to_b$beta))
+ z_to_b$OR_UB<-exp(z_to_b$ub)
+ z_to_b$OR_LB<-exp(z_to_b$lb)
