@@ -49,58 +49,65 @@ ggplotRegression <- function (fit, dat, invVar, lowH, highH, lowV, highV, xlabte
   return(p)
 }
 
-setwd("/Users/wei/Documents/research/projects/GBMI/Flagship/052021/meta/comparetoPreviousGWASIndexVariants/Asthma")
-#TAGCdata1 = fread("TAGC_Multiancestry_and_European-Ancestry_Meta-analyses_Results_Tophits.hg38.bed", header=F, data.table=F)
-#TAGCdata2 = fread("TAGC_Multiancestry_and_European-Ancestry_Meta-analyses_Results_Tophits.tsv", header=T, data.table=F, sep="\t")
-#TAGC = merge(TAGCdata1, TAGCdata2, by.x=4, by.y=2)
-TAGC = fread("TAGC_hormanized_results_TAGCTopHits.txt", header=T, data.table=F)
+#setwd("/net/hunt/disk2/bwolford/GBMI")
+setwd("~/2021_analysis/vte")
+##replication from INVENT
+inv<-fread(file="GBMI_lookup.txt")
+inv$IDtemp<-paste0(inv$chr_hg38,":",inv$pos_hg38)
+## all biobank meta-analysis
+data<-fread("GBMI_VTE_IndexVariants_KnownTrait.txt",na.strings=".",fill=TRUE)
+data$IDtemp<-paste0(data$chr,":",data$pos)
+ ###sensitivity analysis meta without VU
+#d2<-
+data2 = merge(data, inv, by="IDtemp")
 
-##all_biobank meta vs TAGC multi-ancestry
-data = fread("Asthma_Bothsex_inv_var_meta.gz.TAGCTopHits.txt", header=T, data.table=F)
-#data$CHR2=paste0("chr", data[,1])
-data$IDtemp = paste0( data[,1],"_",data[,2], "_", data[,3],"_",data[,4])
-data2 = merge(data, TAGC, by.x="IDtemp", by.y="hm_variant_id")
+#check alleles match, they do except for the proxy variant 
+which((toupper(data2$Allele1) != data2$ref | toupper(data2$Allele2) != data2$alt) & (toupper(data2$Allele2) != data2$ref | toupper(data2$Allele1) != data2$alt))
 
-#data2 = merge(TAGC, data, by.x=c("V1","V3"), by.y=c("CHR2","POS"))
-#data2[,c("reference_allele","alternate_allele","REF","ALT")]
-which(data2$other_allele != data2$REF | data2$effect_allele != data2$ALT)
+#drop proxy and the unreplicated variant
+data2<-data2[data2$proxy!="yes" & data2$Effect!="."]
+
+#keep certain columns
+data3<-data2[,c("IDtemp","ref","alt","beta","se","p","Allele1","Allele2","Effect","StdErr","P-value")]
+#Allele1 is effect allele from INVENT
+#alt is effect allele from GBMI
+data3$new_effect<-ifelse(toupper(data3$Allele2)==data3$alt,as.numeric(data3$Effect),(-1*as.numeric(data3$Effect)))
+data3$Effect<-as.numeric(data3$Effect)
+data3$StdErr<-as.numeric(data3$StdErr)
+data3$GBMI_LB<-data3$beta-(1.96*data3$se)
+data3$GBMI_UB<-data3$beta+(1.96*data3$se)
+data3$GBMI_invse<-1/data3$se
+
+data3$INV_LB<-data3$Effect-(1.96*data3$StdErr)
+data3$INV_LB<-data3$Effect+(1.96*data3$StdErr)
+data3$INV_invse<-1/data3$StdErr
+  #betacol=paste0(b,"_beta")
+  #secol=paste0(b,"_sebeta")
+  #bse=secol
+  #diffindex=which(data3[,betacol] < 0)
+  #data3[diffindex,"beta"] = (-1)* data3[diffindex,"beta"]
+
+  #data3[diffindex,betacol] = (-1)* data3[diffindex,betacol]
+
+  #binvse = paste0(b,"_INVsebeta")
+  #blowV = paste0(b, "_lowV")
+  #data3[[blowV]] =  data3[,betacol] - data3[[secol]]*1.96
+  #bhighV = paste0(b, "_highV")
+  #data3[[bhighV]] =  data3[,betacol] + data3[[secol]]*1.96
+  #data3[[binvse]] = 1/data3[[secol]]
 
 
-#b="Phecode"
-b="all_inv_var_meta"
-
-data3 = data2[which(!is.na(data2[["beta"]]) & !is.na(data2[[paste0(b,"_beta")]])),]
-#data3[which(data3$all_inv_var_het_p >= 0.1),]
-
-betacol=paste0(b,"_beta")
-secol=paste0(b,"_sebeta")
-
-bse=secol
-  diffindex=which(data3[,betacol] < 0)
-  data3[diffindex,"beta"] = (-1)* data3[diffindex,"beta"]
-
-  data3[diffindex,betacol] = (-1)* data3[diffindex,betacol]
-
-
-  binvse = paste0(b,"_INVsebeta")
-  blowV = paste0(b, "_lowV")
-  data3[[blowV]] =  data3[,betacol] - data3[[secol]]*1.96
-  bhighV = paste0(b, "_highV")
-  data3[[bhighV]] =  data3[,betacol] + data3[[secol]]*1.96
-  data3[[binvse]] = 1/data3[[secol]]
-
-
-  lbose="standard_error"
-  lboinvse="invse_GWAS"
-  lbolowH = paste0("GWAS","_lowH")
-  data3[[lbolowH]] =  data3$beta - data3[[lbose]]*1.96
+  #lbose="standard_error"
+  #lboinvse="invse_GWAS"
+  #lbolowH = paste0("GWAS","_lowH")
+  #data3[[lbolowH]] =  data3$beta - data3[[lbose]]*1.96
   #lbohighH = paste0("lbo_",b, "_highH")
-  lbohighH = paste0("GWAS", "_highH")
-  data3[[lbohighH]] =  data3$beta + data3[[lbose]]*1.96
-  data3[[lboinvse]] = 1/data3[[lbose]]
+  #lbohighH = paste0("GWAS", "_highH")
+  #data3[[lbohighH]] =  data3$beta + data3[[lbose]]*1.96
+  #data3[[lboinvse]] = 1/data3[[lbose]]
 
   #formula3 = as.formula(paste0("Effect_GWAS ~ ", b, "_beta"))
-  formula3 = as.formula(paste0(b,"_beta ~ beta"))
+  formula3 = as.formula(paste0(b,"new_effect ~ beta"))
   #fit3 <- lm(formula3, weights=data3[[binvse]], data = data3)
   fit3 <- lm(formula3, data = data3)
   minVal=min(0,min(data3[[blowV]])-0.01,min(data3[[lbolowH]])-0.01)
@@ -113,9 +120,9 @@ bse=secol
   #                 pdffile=paste0("effect_size_",b,"_vs_previous_GWAS.png"),
   #                 xMaxVal = maxVal, yMaxVal = maxVal,
   #                 xMinVal= minVal, yMinVal= minVal)
-  dat=data3[,c("beta","standard_error",betacol,secol)]
+  #dat=data3[,c("beta","standard_error",betacol,secol)]
 
- ggplotRegression(fit3, dat, data3[[binvse]], data3[[lbolowH]],data3[[lbohighH]], data3[[blowV]], data3[[bhighV]],
+ ggplotRegression(fit3, data3, data3[[binvse]], data3[[lbolowH]],data3[[lbohighH]], data3[[blowV]], data3[[bhighV]],
                  xlabtext=paste0("Effect sizes reported in TAGC multiancestry"),
                   ylabtext=paste0("Effect sizes in all-biobank meta-analyses"),
                  pdffile=paste0("effect_size_",b,"_vs_TAGC_multiancestry_harmonized.png"),
