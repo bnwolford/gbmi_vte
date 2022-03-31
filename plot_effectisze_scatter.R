@@ -59,8 +59,8 @@ inv$IDtemp<-paste0(inv$chr_hg38,":",inv$pos_hg38)
 ## all biobank meta-analysis
 data<-fread("GBMI_VTE_IndexVariants_KnownTrait.txt",na.strings=".",fill=TRUE)
 data$IDtemp<-paste0(data$chr,":",data$pos)
- ###sensitivity analysis meta without VU
-#d2<-
+
+#merge
 data2 = merge(data, inv, by="IDtemp")
 
 #check alleles match, they do except for the proxy variant 
@@ -133,8 +133,35 @@ dat=data3[,c("beta","se","new_effect","StdErr")]
                   xMaxVal = maxVal, yMaxVal = maxVal,
                   xMinVal= minVal, yMinVal= minVal)
  
- ####### meta-analysis 
+ #### sensitivity analysis with BioVU leave biobank out since INVENT+MVP has eMERGE samples 
+ ###which could be in BioVU. THis file is really large because all summ stats.
+ lobo<-fread("VTE_Bothsex_leave_BioVU_inv_var_meta_GBMI_052021.txt.gz")
+ lobo$IDtemp<-paste(sep=":",lobo$`#CHR`,lobo$POS)
+ data4<-merge(data3,lobo,by="IDtemp")
+ rm(lobo)
+ data4$LOBO_LB<-data4$inv_var_meta_beta-(1.96*data4$inv_var_meta_sebeta)
+ data4$LOBO_UB<-data4$inv_var_meta_beta+(1.96*data4$inv_var_meta_sebeta)
+ data4$LOBO_invse<-1/data4$inv_var_meta_sebeta
+ dat=data4[,c("inv_var_meta_beta","inv_var_meta_sebeta","new_effect","StdErr")]
+ formula4 = as.formula("new_effect ~ inv_var_meta_beta")
+ #fit3 <- lm(formula3, weights=data3[[binvse]], data = data3)
+ fit4 <- lm(formula4, data = data4)
+ minVal=min(min(data4$LOBO_LB)-0.01,min(data4$INV_LB)-0.01)
+ maxVal=max(max(data4$LOBO_UB)+0.01,max(data4$INV_UB)+0.01 )
+ cat("maxVal: ", maxVal, "\n")
+ cat("minVal: ", minVal, "\n")
  
+ ggplotRegression(fit4, dat, data4$LOBO_invse, data4$LOBO_LB,data4$LOBO_UB, data4$INV_LB, data3$INV_UB,
+                  ylabtext=paste0("Effect sizes from INVENT+MVP\n meta-analysis (replication)"),
+                  xlabtext=paste0("Effect sizes from GBMI\nLeave-BioVU-out meta-analysis"),
+                  pdffile=paste0("effect_size_leave_biovu_out.png"),
+                  xMaxVal = maxVal, yMaxVal = maxVal,
+                  xMinVal= minVal, yMinVal= minVal)
+ 
+ 
+ 
+####### meta-analysis 
+
  z_to_b<-data.frame("beta"=0,"se"=0,"sample"="test",stringsAsFactors = F)
  ss$weight<-1/ss$SE^2
  ss$bw<-ss$BETA*ss$weight
