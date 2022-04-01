@@ -161,21 +161,28 @@ dat=data3[,c("beta","se","new_effect","StdErr")]
  
  
 ####### meta-analysis 
-
- z_to_b<-data.frame("beta"=0,"se"=0,"sample"="test",stringsAsFactors = F)
- ss$weight<-1/ss$SE^2
- ss$bw<-ss$BETA*ss$weight
- for (k in unique(ss$subset)){
-   sub<-ss[ss$subset==k,]
-   bwsum<-sum(sub$bw)
-   wsum<-sum(sub$weight)
-   se<-sqrt(1/sum(sub$weight))
-   beta<-bwsum/wsum
-   z_to_b<-rbind(z_to_b,c(beta,se,k))
+meta<-data.frame("beta"=0,"se"=0,"marker"="NA",stringsAsFactors = F)
+for (i in 1:nrow(data4)){
+  ss<-data.frame(matrix(c(data4$inv_var_meta_beta[i],data4$inv_var_meta_sebeta[i],data4$new_effect[i],data4$StdErr[i]),ncol=2,nrow=2,byrow=TRUE))
+  names(ss)<-c("BETA","SE")
+  ss$weight<-1/ss$SE^2
+  ss$bw<-ss$BETA*ss$weight
+  bwsum<-sum(ss$bw)
+  wsum<-sum(ss$weight)
+  se<-sqrt(1/sum(ss$weight))
+  beta<-bwsum/wsum
+  meta<-rbind(meta,c(beta,se,data4$IDtemp[i]))
  }
- z_to_b<-z_to_b[-1,]
- z_to_b$ub<-as.numeric(z_to_b$beta)+1.96*as.numeric(z_to_b$se)
- z_to_b$lb<-as.numeric(z_to_b$beta)-1.96*as.numeric(z_to_b$se)
- z_to_b$OR<-exp(as.numeric(z_to_b$beta))
- z_to_b$OR_UB<-exp(z_to_b$ub)
- z_to_b$OR_LB<-exp(z_to_b$lb)
+meta<-meta[-1,]
+meta$ub<-as.numeric(meta$beta)+1.96*as.numeric(meta$se)
+meta$lb<-as.numeric(meta$beta)-1.96*as.numeric(meta$se)
+meta$OR<-exp(as.numeric(meta$beta))
+meta$OR_UB<-exp(meta$ub)
+meta$OR_LB<-exp(meta$lb)
+meta$z<-as.numeric(meta$b)/as.numeric(meta$se)
+meta$pval<-2*pnorm(-abs(meta$z))  #two sided
+
+table(meta$pval<5e-8)
+
+#to do: sort
+write.csv(format(meta[c("marker","OR","OR_LB","OR_UB","pval")],digits=3),file="replication_meta.csv",row.names=FALSE,quote=FALSE)
