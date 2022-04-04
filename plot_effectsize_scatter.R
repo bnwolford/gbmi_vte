@@ -66,8 +66,8 @@ data2 = merge(data, inv, by="IDtemp")
 #check alleles match, they do except for the proxy variant 
 which((toupper(data2$Allele1) != data2$ref | toupper(data2$Allele2) != data2$alt) & (toupper(data2$Allele2) != data2$ref | toupper(data2$Allele1) != data2$alt))
 
-#drop proxy and the unreplicated variant
-data2<-data2[data2$proxy!="yes" & data2$Effect!="."]
+#rs187506383 used as a proxy for rs536995174
+data2<-data2[data2$Effect!="."]
 
 #keep certain columns
 data3<-data2[,c("IDtemp","ref","alt","beta","se","p","Allele1","Allele2","Effect","StdErr","P-value")]
@@ -158,7 +158,12 @@ dat=data3[,c("beta","se","new_effect","StdErr")]
                   xMaxVal = maxVal, yMaxVal = maxVal,
                   xMinVal= minVal, yMinVal= minVal)
  
- 
+#test correlations 
+cor.test(data4$new_effect,data4$beta)
+cor.test(data4$new_effect,data4$inv_var_meta_beta)
+
+#same effect sizes?
+table(data4$new_effect>0 & data4$beta<0 | data4$new_effect>0 & data4$beta<0)
  
 ####### meta-analysis 
 meta<-data.frame("beta"=0,"se"=0,"marker"="NA",stringsAsFactors = F)
