@@ -2,18 +2,24 @@
 library(data.table)
 library(dplyr)
 
-setwd("/net/hunt/disk2/bwolford/GBMI")
+#setwd("/net/hunt/disk2/bwolford/GBMI")
+setwd("~/2021_analysis/vte")
 
-##replication
+##replication from INVENT
 df<-fread(file="GBMI_lookup.txt")
 names(df)[13]<-"pval"
-df<-df[!(pval==".")]
-df<-df[,c(5,6,13)] #only cols of interst aka pvalue
+df$proxy<-factor(df$proxy,levels=c("no","yes"))
+df<-df[!(pval==".")] #remove the variant that needed a proxy
+#n<-ncol(df)
+df<-df[,c(5:19)] #remove hg19 coords
+df$replicate<-ifelse(as.numeric(df$pval)<5e-8,1,0) #TO DO FIX the p-value overflow for scatter plot
+bonferroni<-0.05/nrow(df)
+df$replicate_bonferroni<-ifelse(as.numeric(df$pval)<bonferroni,1,0)
 table(as.numeric(df$pval) < 0.05/nrow(df)) #how many replicate
+df<-df %>% rename_with(~paste0("replication_",.))#renamecolumns as replication_X
 
 ##known and novel
-main<-fread("/net/hunt/disk2/wukh/GBMI_bio/VTE/GBMI_VTE_IndexVariants_KnownTrait.txt",na.strings=".",fill=TRUE)
-
+main<-fread("GBMI_VTE_IndexVariants_KnownTrait.txt",na.strings=".",fill=TRUE)
 main$beta_pos=abs(main$beta)
 main<-main %>% mutate(freq_pos=case_when(beta < 0~(1-freq), beta>0~freq),
                       effect_allele=case_when(beta<0~ref,beta>0~alt))
@@ -21,24 +27,47 @@ main<-main %>% mutate(freq_pos=case_when(beta < 0~(1-freq), beta>0~freq),
 main$OR<-exp(main$beta_pos)
 main$LB<-exp(main$beta_pos-(1.96*main$se))
 main$UB<-exp(main$beta_pos+(1.96*main$se))
-main$CI<-paste0("[",formatC(main$LB,digits=2),",",formatC(main$UB,digits=2),"]")
+main$CI<-paste0("[",formatC(main$LB,digits=3),",",formatC(main$UB,digits=3),"]")
 #main<-main[,c(1,2,3,4,5,14,16,20,21,22,23,24,25,26)]
-main$OR<-formatC(main$OR,digits=2)
+main$OR<-formatC(main$OR,digits=3)
 main$p<-formatC(main$p,digits=3)
-main$VTE<-ifelse(main$VTE==0,"Potentially Novel","Known")
+#main$VTE<-ifelse(main$VTE==0,"Potentially Novel","Known")
 
-df2<-left_join(main,df,by=c("pos"="pos_hg38"))
-df2$chr_hg38<-NULL
-df2$p<-ifelse(as.numeric(df2$p)==0,2.22E-308,df2$p)
+#join
+df2<-left_join(main,df,by=c("pos"="replication_pos_hg38"))
+
+#supp table 6 from GBMI flagship
+st<-fread("VTE_variants_flagship_ST6.csv")
+df3<-left_join(df2,st,by=c("pos"="POS(hg38)"))
+
+#all the evidence about loci
+info<-fread("integrative_prioritization_2021_09_24.csv")
+#2 clinvar entries for rs6025 COMBINE
+info[info$rsid=="rs6025",]$CLINVAR[1]<-paste0(info[info$rsid=="rs6025",]$CLINVAR[1],info[info$rsid=="rs6025",]$CLINVAR[2])
+rowtodrop<-which(info$rsid=="rs6025")[2]
+info<-info[-rowtodrop,]
+info$LocusIndex<-seq(1:nrow(info)) #fix mis numbering of locus index
+df4<-left_join(df3,info,by=c("pos"="POS"))
+
+#this file has number of lines of evidence manually curated
+info2<-fread("integrative_prioritization_2021_09_24_toplot.csv")
+df5<-left_join(df4,info2,by=c("pos"="POS"))
+
+##### subset to relevant columns for Supplementary Table 3
+
+supp<-df5 %>% dplyr::select(69,1,2,108,30:42,45:68,16:19,86:101,103:105,111:122) %>% dplyr::select(-c("rs id","CHR.x","REF.x","Locus index"))
+#selectively rename
+names(supp)[1]<-"Locus Index"
+names(supp)[27]<-"StdError"
+supp$direction_ALT<-paste0("'", supp$direction_ALT,"'")
+supp$`replication_Direction(INVENT_EA,INVENT_AA,MVP_EA,MVP_AA,MVP_HIS)`<-paste0("'", supp$`replication_Direction(INVENT_EA,INVENT_AA,MVP_EA,MVP_AA,MVP_HIS)`,"'")
 
 ## to do: how to fix the numerical overflow and print "." in cells
+#write
+write.table(supp,file="Supplementary_Table3.txt",sep="\t",row.names=FALSE,col.names=TRUE,quote=FALSE)
 
-#subset columns and write
-df3<-df2[,c(1,2,3,4,5,10,11,14,6,15,7)]
-names(df3)<-c("Chromosome","Position (hg38)","Reference Allele", "Alternate Allele","Effect Allele","Lead SNP rsID","Odds Ratio","95% CI",
-              "P-value","Replication p-value","Previously identified in GWAS")
-write.table(df3,file="Formatted_Table1.txt",sep="\t",row.names=FALSE,col.names=TRUE,quote=FALSE)
 
+######################### Smile plot
 library(ggplot2)
 library(ggrepel)
 anno<-fread("VTE_tophits.onetophitperlocus.txt_hg38_meta_annovar_500kb_05252021_heterPval_ancestry_noami_withaf.txt")
@@ -65,7 +94,7 @@ ggplot(df5,aes(x=freq_pos,y=beta_pos,label=gene,color=VTE,size=-log10(inv_var_me
   theme(legend.position="bottom") + scale_color_manual(values=c("blue","red"),name="")
 dev.off()
 
-##### Kristin code
+##### Kristin Tsuo code
 library(readr)
 library(readxl)
 library(tidyverse)
