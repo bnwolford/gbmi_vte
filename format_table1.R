@@ -18,7 +18,7 @@ df$replicate_bonferroni<-ifelse(as.numeric(df$pval)<bonferroni,1,0)
 table(as.numeric(df$pval) < 0.05/nrow(df)) #how many replicate
 df<-df %>% rename_with(~paste0("replication_",.))#renamecolumns as replication_X
 
-##known and novel
+## this has the old known and novel designation (22 novel)
 main<-fread("GBMI_VTE_IndexVariants_KnownTrait.txt",na.strings=".",fill=TRUE)
 main$beta_pos=abs(main$beta)
 main<-main %>% mutate(freq_pos=case_when(beta < 0~(1-freq), beta>0~freq),
@@ -32,12 +32,14 @@ main$CI<-paste0("[",formatC(main$LB,digits=3),",",formatC(main$UB,digits=3),"]")
 main$OR<-formatC(main$OR,digits=3)
 main$p<-formatC(main$p,digits=3)
 #main$VTE<-ifelse(main$VTE==0,"Potentially Novel","Known")
+main$Category<-NULL
 
 #join
 df2<-left_join(main,df,by=c("pos"="replication_pos_hg38"))
 
-#supp table 6 from GBMI flagship
+#supp table 6 from GBMI flagship (best)
 st<-fread("VTE_variants_flagship_ST6.csv")
+st$PMID<-as.character(st$PMID)
 df3<-left_join(df2,st,by=c("pos"="POS(hg38)"))
 
 #all the evidence about loci
@@ -45,22 +47,36 @@ info<-fread("integrative_prioritization_2021_09_24.csv")
 #2 clinvar entries for rs6025 COMBINE
 info[info$rsid=="rs6025",]$CLINVAR[1]<-paste0(info[info$rsid=="rs6025",]$CLINVAR[1],info[info$rsid=="rs6025",]$CLINVAR[2])
 rowtodrop<-which(info$rsid=="rs6025")[2]
+names(info)[which(names(info)=="gene")]<-"gene_pwas"
 info<-info[-rowtodrop,]
 info$LocusIndex<-seq(1:nrow(info)) #fix mis numbering of locus index
 df4<-left_join(df3,info,by=c("pos"="POS"))
 
 #this file has number of lines of evidence manually curated
 info2<-fread("integrative_prioritization_2021_09_24_toplot.csv")
-df5<-left_join(df4,info2,by=c("pos"="POS"))
+df5<-left_join(df4,info2,by=c("pos"="POS")) %>% dplyr::select(-c("LocusIndex.y","rsid","CHR","REF","ALT.y"))
 
+#1 to 25 is original file from discovery, 26 to 41 is replication, 42 to 67 is the flagship table, 
+#68 to 121 is the itnegrative prioritization table 
 ##### subset to relevant columns for Supplementary Table 3
 
-supp<-df5 %>% dplyr::select(69,1,2,108,30:42,45:68,16:19,86:101,103:105,111:122) %>% dplyr::select(-c("rs id","CHR.x","REF.x","Locus index"))
+supp<-df5 %>% dplyr::select(68,45:48,43,113,67,53:66,29:41,18,78:112,114:116)
+                            
 #selectively rename
 names(supp)[1]<-"Locus Index"
-names(supp)[27]<-"StdError"
+names(supp)[13]<-"StdError"
 supp$direction_ALT<-paste0("'", supp$direction_ALT,"'")
+supp$PMID<-paste0("'",supp$PMID,"'")
 supp$`replication_Direction(INVENT_EA,INVENT_AA,MVP_EA,MVP_AA,MVP_HIS)`<-paste0("'", supp$`replication_Direction(INVENT_EA,INVENT_AA,MVP_EA,MVP_AA,MVP_HIS)`,"'")
+
+supp$OR<-exp(supp$`beta (ALT)`)
+supp$UB<-exp(supp$`beta (ALT)`+1.96*supp$StdError)
+supp$LB<-exp(supp$`beta (ALT)`-1.96*supp$StdError)
+
+supp$replication_OR<-exp(as.numeric(supp$replication_Effect))
+supp$replication_UB<-exp(as.numeric(supp$replication_Effect)+1.96*as.numeric(supp$replication_StdErr))
+supp$replication_LB<-exp(as.numeric(supp$replication_Effect)-1.96*as.numeric(supp$replication_StdErr))
+
 
 ## to do: how to fix the numerical overflow and print "." in cells
 #write
