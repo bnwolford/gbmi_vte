@@ -60,14 +60,20 @@ df5<-left_join(df4,info2,by=c("pos"="POS")) %>% dplyr::select(-c("LocusIndex.y",
 #68 to 121 is the itnegrative prioritization table 
 ##### subset to relevant columns for Supplementary Table 3
 
-supp<-df5 %>% dplyr::select(68,45:48,43,113,67,53:66,29:41,18,78:112,114:116)
+supp<-df5 %>% dplyr::select(68,45,2,46:48,113,43,67,53:66,29:41,18,78:112,114:116)
                             
 #selectively rename
 names(supp)[1]<-"Locus Index"
-names(supp)[13]<-"StdError"
+names(supp)[14]<-"StdError"
+names(supp)[2]<-"CHR"
+names(supp)[4]<-"REF"
+names(supp)[6]<-"rsid"
+names(supp)[8]<-"Category"
 supp$direction_ALT<-paste0("'", supp$direction_ALT,"'")
 supp$PMID<-paste0("'",supp$PMID,"'")
 supp$`replication_Direction(INVENT_EA,INVENT_AA,MVP_EA,MVP_AA,MVP_HIS)`<-paste0("'", supp$`replication_Direction(INVENT_EA,INVENT_AA,MVP_EA,MVP_AA,MVP_HIS)`,"'")
+
+supp$Integrative_priortization_gene<-supp$`Prioritized gene`
 
 supp$OR<-exp(supp$`beta (ALT)`)
 supp$UB<-exp(supp$`beta (ALT)`+1.96*supp$StdError)
@@ -77,11 +83,21 @@ supp$replication_OR<-exp(as.numeric(supp$replication_Effect))
 supp$replication_UB<-exp(as.numeric(supp$replication_Effect)+1.96*as.numeric(supp$replication_StdErr))
 supp$replication_LB<-exp(as.numeric(supp$replication_Effect)-1.96*as.numeric(supp$replication_StdErr))
 
+supp<-supp %>% select(1:14,76:78,15:27,79:81,28:72,82,73:75)
+
+#edit prioritized gene by hand
 
 ## to do: how to fix the numerical overflow and print "." in cells
 #write
-write.table(supp,file="Supplementary_Table3.txt",sep="\t",row.names=FALSE,col.names=TRUE,quote=FALSE)
+write.table(format(supp,digits=3),file="Supplementary_Table3.txt",sep="\t",row.names=FALSE,col.names=TRUE,quote=FALSE)
 
+
+################# replication probability 
+#Are the 35/38 and 30/38 consistent with expectation if all are true associations - good to state this if so
+pbinom(35,38,0.5,lower.tail=FALSE) #probability
+
+binom.test(30,38,0.5,alternative="greater") #uncertainty because of low number of trials 
+binom.test(35,38,0.5,alternative="greater") 
 
 ######################### Smile plot
 library(ggplot2)
