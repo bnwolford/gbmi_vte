@@ -14,7 +14,7 @@ setwd("~/2021_analysis/vte/")
 
 #id<-"842021993"
 #saved .xlsx as google sheet
-df<-read_sheet("https://docs.google.com/spreadsheets/d/1ycGtr2s0LpYF87f6w6oGmKPP59d3IpeRpzX6D2sHshE/edit?pli=1#gid=842021993",
+df<-read_sheet("https://docs.google.com/spreadsheets/d/1SvmpdEe71IoOsiWVQXoCNfZDMggWa7DTiJjAUZRVnrA/edit#gid=842021993",
                sheet=3)
 #gs4_auth()
 
@@ -47,7 +47,7 @@ pdf(file="integrative_heatmap.pdf",height=5,width=10,useDingbats=TRUE)
   
   ##### can't get this to work, something wrong with vector for font
   
-  gold_std<-c("ADAMTS13","PTPN11","VWF","F10","F2","F3","F5","F7","F8","F9","FGA","FGG","FGB",
+  gold_std<-c("ADAMTS13","PTPN11","VWF","F10","F2","F3","F5","F7","F7;F10","F8","F9","FGA","FGG","FGB",
               "GP5","GP6","GP9","PLG","PROC","PROS1",
               "PROZ","SERPINC1","SERPINE1","SERPINE2","THBD","VKORC1")
  
@@ -58,6 +58,13 @@ setface<-ifelse(levels(sum$gene_reorder) %in% gold_std,"bold.italic","italic")
 
 sum$variable<-recode_factor(sum$variable, "Credible Set"="Nonsynonymous variant\nin Credible Set",
                             "Clinvar"="ClinVar", "PWAS"="PWAS & Colocalization")  
+
+sum$gene_reorder<-recode(factor(sum$gene_reorder,"F7;F10"="F7*;F10",
+                                "RASIP1"="RASIP1*",
+                                "STAB2"="STAB2*",
+                                "TSPAN15"="TSPAN15*",
+                                "TC2N"="TC2N*",
+                                "PLCG2"="PLCG2*"))
   pdf(file="integrative_heatmap_bold.pdf",height=5,width=10,useDingbats=TRUE)
   x2<-ggplot(sum,aes(gene_reorder,y=variable,fill=value)) + geom_tile() + theme_bw() +
     theme(axis.text.x = element_text(face=setface,angle=45,hjust=1),
