@@ -176,6 +176,9 @@ plot_output_name = 'smileplot.jpeg'
 ggsave(plot, height = 8, width = 12, dpi = 300, filename=plot_output_name)
 
 
+################### plot for integrative prioritization 
+library(googledrive)
+library(googlesheets4)
 
 # geom_text_repel(
 #   aes(point.size = -log10(inv_var_meta_p)), # data point size
