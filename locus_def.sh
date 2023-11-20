@@ -13,7 +13,7 @@ outprefix=$2
 
 Rscript /net/snowwhite/home/bwolford/2021_analysis/vte/gbmi_vte/ManhattanPlot.r \
 	--input=${summary_stats_file}	\
-	--PVAL="all_inv_var_meta_p"	\
+	--PVAL="inv_var_meta_p"	\
 	--knownRegionFlank=500000	\
 	--prefix=${outprefix}	\
 	--ismanhattanplot=TRUE	\
@@ -26,7 +26,7 @@ Rscript /net/snowwhite/home/bwolford/2021_analysis/vte/gbmi_vte/ManhattanPlot.r 
 
 ############
 
-#region_file=$1  #region.txt output by define_sig_region.sh
+#region_file=${outprefix}.regions.txt  #region.txt output by Manhattan plot script
 #reported_bed_file=$2 #bed file with three columns that contain the region around the previously reported top hits (500kb up- and down-stream)
 
 #tail -n +2 $region_file awk '{if ($3 >= 0) print "chr"$2"\t"$3"\t"$4; else print "chr"$2"\t0\t"$4;}' | sort -k1,1 -k2,2n > ${region_file}.reformat.bed
